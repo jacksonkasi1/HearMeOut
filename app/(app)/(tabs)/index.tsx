@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   },
   simulationTitle: {
     fontSize: fonts.sizes.md,
-    fontWeight: fonts.weights.semibold,
+    fontWeight: "600",
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },

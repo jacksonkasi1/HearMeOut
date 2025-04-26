@@ -12,7 +12,7 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarLabelStyle: {
           fontSize: fonts.sizes.xs,
-          fontWeight: "500",
+          fontWeight: fonts.weights.medium,
         },
         tabBarStyle: {
           borderTopWidth: 1,
