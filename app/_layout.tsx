@@ -36,6 +36,8 @@ export default function RootLayout() {
                 <Toaster />
                 <SafeAreaProvider>
                     <Stack screenOptions={{ headerShown: false }}>
+                        <Stack.Screen name="index" />
+                        <Stack.Screen name="(app)" />
                         <Stack.Screen
                             name="+not-found"
                             options={{ headerShown: false }}
