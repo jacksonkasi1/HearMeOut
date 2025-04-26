@@ -1,25 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 import { colors } from '@/constants/colors';
 
 export default function Index() {
   const { user, initialized } = useAuth();
-  const router = useRouter();
-  
-  useFocusEffect(
-    useCallback(() => {
-      if (!initialized) return;
-      if (user) {
-        router.replace('/(app)/(tabs)');
-      } else {
-        router.replace('/(auth)/login');
-      }
-    }, [initialized, user, router])
-  );
   
   if (!initialized) {
     return (
@@ -29,7 +15,11 @@ export default function Index() {
     );
   }
   
-  return null;
+  if (user) {
+    return <Redirect href="/(app)/(tabs)" />;
+  }
+  
+  return <Redirect href="/(auth)/login" />;
 }
 
 const styles = StyleSheet.create({

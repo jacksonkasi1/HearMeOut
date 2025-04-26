@@ -1,6 +1,8 @@
 import React, { useState, createContext, PropsWithChildren, useEffect } from 'react'
 import { Session, User } from '@supabase/supabase-js';
 import { useAuthStore } from '@/stores/authStore';
+import { ActivityIndicator, View } from 'react-native';
+import { colors } from '@/constants/colors';
 
 type AuthProps = {
     user: User | null
@@ -17,7 +19,7 @@ export const AuthProvider = ({ children, onLogout, onLogin }: PropsWithChildren<
     useEffect(() => {
         async function prepare() {
             try {
-                initialize()
+                await initialize()
             } finally {
                 setAppIsReady(true);
             }
@@ -27,15 +29,21 @@ export const AuthProvider = ({ children, onLogout, onLogin }: PropsWithChildren<
 
     useEffect(() => {
         if (!initialized || !appIsReady) return;
-        if (session) {
+        
+        if (session && user) {
             onLogin?.()
-        } else if (!session) {
+        } else {
             onLogout?.()
         }
-    }, [initialized, appIsReady, session]);
+    }, [initialized, appIsReady, session, user]);
 
     if (!initialized || !appIsReady) {
-        return null;
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+        );
     }
+    
     return <AuthContext.Provider value={{ session, initialized, user }}>{children}</AuthContext.Provider>
 }

@@ -1,22 +1,23 @@
 import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, Redirect } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'expo-router';
 import { useProfileStore } from '@/stores/profileStore';
 
 export default function AppLayout() {
-  const { user } = useAuth();
-  const router = useRouter();
+  const { user, initialized } = useAuth();
   const { fetchProfile } = useProfileStore();
   
   useEffect(() => {
-    if (!user) {
-      router.replace('/(auth)/login');
-    } else {
+    if (user) {
       // Fetch user profile when authenticated
       fetchProfile();
     }
   }, [user]);
+  
+  // Direct redirect if no user (instead of programmatic navigation)
+  if (initialized && !user) {
+    return <Redirect href="/(auth)/login" />;
+  }
   
   return (
     <Stack>

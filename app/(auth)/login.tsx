@@ -10,7 +10,7 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter, Link } from 'expo-router';
+import { Link } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
@@ -26,7 +26,6 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   
   const { signInWithEmail, loading } = useAuthStore();
-  const router = useRouter();
   
   const handleLogin = async () => {
     if (!email || !password) {
@@ -34,6 +33,7 @@ export default function LoginScreen() {
     }
     
     await signInWithEmail(email, password);
+    // The AuthProvider will handle redirection after successful login
   };
   
   return (

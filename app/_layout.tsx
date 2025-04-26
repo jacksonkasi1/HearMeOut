@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Stack, router } from 'expo-router';
+import { Slot, Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { View, Platform, ActivityIndicator } from 'react-native';
 import { useFonts } from 'expo-font';
@@ -30,17 +30,12 @@ export default function RootLayout() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider
-                onLogout={() => { router.replace('/'); }} // redirect to login page
-                onLogin={() => { router.replace('/'); }} // redirect to main page
+                onLogout={() => { router.replace('/(auth)/login'); }}
+                onLogin={() => { router.replace('/(app)/(tabs)'); }}
             >
                 <Toaster />
                 <SafeAreaProvider>
-                    <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen
-                            name="+not-found"
-                            options={{ headerShown: false }}
-                        />
-                    </Stack>
+                    <Slot />
                 </SafeAreaProvider>
             </AuthProvider>
         </GestureHandlerRootView>
