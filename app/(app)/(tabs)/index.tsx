@@ -5,6 +5,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { fonts } from '@/constants/fonts';
 import { Feather } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 
 export default function ListenScreen() {
   const [isListening, setIsListening] = useState(false);
@@ -25,6 +26,7 @@ export default function ListenScreen() {
   
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" backgroundColor={colors.background} />
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>HearMeOut</Text>
