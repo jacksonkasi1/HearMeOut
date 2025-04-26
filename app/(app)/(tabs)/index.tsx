@@ -21,7 +21,7 @@ import { ControlButton } from '@/components/ui/ControlButton';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEmergencyLogsStore } from '@/stores/emergencyLogsStore';
 
-export default function Index() {
+export default function ListenScreen() {
   const {
     isListening,
     transcription,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   },
   simulationTitle: {
     fontSize: fonts.sizes.md,
-    fontWeight: "600",
+    fontWeight: fonts.weights.semibold,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
