@@ -21,7 +21,7 @@ import { ControlButton } from '@/components/ui/ControlButton';
 import { useProfileStore } from '@/stores/profileStore';
 import { useEmergencyLogsStore } from '@/stores/emergencyLogsStore';
 
-export default function ListenScreen() {
+export default function Index() {
   const {
     isListening,
     transcription,

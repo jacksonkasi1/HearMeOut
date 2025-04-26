@@ -53,5 +53,7 @@ module.exports = {
   },
   extra: {
     fonts: ["./assets/fonts/SpaceMono-Regular.ttf"]
-  }
+  },
+  // Enable React Native's New Architecture
+  newArchEnabled: true
 }; 

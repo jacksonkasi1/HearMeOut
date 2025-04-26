@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { View, Platform, ActivityIndicator } from 'react-native';
 import { useFonts } from 'expo-font';
@@ -16,6 +16,9 @@ export default function RootLayout() {
     const [loaded] = useFonts({
         SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     });
+    
+    const segments = useSegments();
+    const navigationState = useRootNavigationState();
 
     useEffect(() => {
         if (loaded) {
@@ -23,7 +26,8 @@ export default function RootLayout() {
         }
     }, [loaded]);
 
-    if (!loaded) {
+    // Wait for navigation to be ready before rendering
+    if (!navigationState?.key || !loaded) {
         return <ActivityIndicator />;
     }
 
@@ -35,7 +39,7 @@ export default function RootLayout() {
             >
                 <Toaster />
                 <SafeAreaProvider>
-                    <Stack screenOptions={{ headerShown: false }}>
+                    <Stack initialRouteName="index" screenOptions={{ headerShown: false }}>
                         <Stack.Screen name="index" />
                         <Stack.Screen name="(app)" />
                         <Stack.Screen
