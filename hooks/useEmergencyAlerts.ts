@@ -13,6 +13,7 @@ export function useEmergencyAlerts() {
   const soundRef = useRef<Audio.Sound | null>(null);
   const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const vibrationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const sequenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Clean up on unmount
   useEffect(() => {
@@ -26,14 +27,15 @@ export function useEmergencyAlerts() {
     if (isEmergency) {
       setIsAlertActive(true);
       
-      // Always enable vibration in emergency mode
-      triggerVibration(true);
+      // Sequence of alerts: vibrate - flash - vibrate...
+      startAlertSequence();
       
-      if (profile?.enable_flashlight && Platform.OS !== 'web') {
+      // Check for camera permission for flashlight
+      if (Platform.OS !== 'web') {
         try {
           const { status } = await Camera.requestCameraPermissionsAsync();
-          if (status === 'granted') {
-            toggleFlashlight(true);
+          if (status !== 'granted') {
+            console.log('Camera permission not granted, flashlight will not work');
           }
         } catch (error) {
           console.error('Camera permission error:', error);
@@ -44,109 +46,92 @@ export function useEmergencyAlerts() {
     }
   };
   
-  const triggerVibration = (on: boolean) => {
+  const startAlertSequence = () => {
+    // Clear any existing sequences
+    if (sequenceTimeoutRef.current) {
+      clearTimeout(sequenceTimeoutRef.current);
+    }
+    if (vibrationIntervalRef.current) {
+      clearInterval(vibrationIntervalRef.current);
+    }
+    if (flashIntervalRef.current) {
+      clearInterval(flashIntervalRef.current);
+    }
+    
+    // Reset states
+    setIsVibrating(false);
+    setIsFlashlightOn(false);
+    
+    // Start the sequence
+    runSequence();
+    
+    // Setup interval to continually run sequence
+    vibrationIntervalRef.current = setInterval(() => {
+      runSequence();
+    }, 4000); // Full cycle takes about 4 seconds
+  };
+  
+  const runSequence = () => {
+    // 1. Vibrate for 1 second
+    handleVibration(true);
+    setIsVibrating(true);
+    
+    // 2. Wait 0.2s, then turn off vibration
+    sequenceTimeoutRef.current = setTimeout(() => {
+      handleVibration(false);
+      setIsVibrating(false);
+      
+      // 3. Flash for 0.5 second
+      sequenceTimeoutRef.current = setTimeout(() => {
+        setIsFlashlightOn(true);
+        
+        // 4. Turn off flash, wait 0.2s
+        sequenceTimeoutRef.current = setTimeout(() => {
+          setIsFlashlightOn(false);
+          
+          // 5. Vibrate again for 1.5 seconds
+          sequenceTimeoutRef.current = setTimeout(() => {
+            handleVibration(true);
+            setIsVibrating(true);
+            
+            // Turn off vibration
+            sequenceTimeoutRef.current = setTimeout(() => {
+              handleVibration(false);
+              setIsVibrating(false);
+            }, 1500);
+          }, 200);
+        }, 500);
+      }, 200);
+    }, 1000);
+  };
+  
+  const handleVibration = (on: boolean) => {
     if (!on) {
       // Stop vibration
       Vibration.cancel();
-      if (vibrationIntervalRef.current) {
-        clearInterval(vibrationIntervalRef.current);
-        vibrationIntervalRef.current = null;
-      }
-      setIsVibrating(false);
       return;
     }
-
-    setIsVibrating(true);
     
     // For iOS, use Haptics for better feedback
     if (Platform.OS === 'ios') {
-      // SOS pattern using Haptics (3 short, 3 long, 3 short)
       const iosVibrationPattern = async () => {
         try {
-          // Short pulses (3 times)
-          for (let i = 0; i < 3; i++) {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-          
-          // Slight pause
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Long pulses (3 times)
-          for (let i = 0; i < 3; i++) {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            await new Promise(resolve => setTimeout(resolve, 200));
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-          
-          // Slight pause
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Short pulses (3 times)
-          for (let i = 0; i < 3; i++) {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          // iOS can't sustain long vibrations with Haptics API, so we'll pulse it
+          await new Promise(resolve => setTimeout(resolve, 200));
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          await new Promise(resolve => setTimeout(resolve, 200));
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         } catch (error) {
           console.error('Haptics error:', error);
-          // Fallback to basic vibration if haptics fail
-          Vibration.vibrate([500, 500, 500, 500], true);
         }
       };
       
-      // Run the pattern immediately
       iosVibrationPattern();
-      
-      // Repeat the pattern every 5 seconds
-      vibrationIntervalRef.current = setInterval(() => {
-        iosVibrationPattern();
-      }, 5000);
     } else {
-      // For Android, use pattern vibration
-      // SOS pattern: ... --- ...
-      // Short pulse: 200ms vibrate, 200ms pause
-      // Long pulse: 500ms vibrate, 200ms pause
-      const androidSOSPattern = [
-        0, // Initial delay
-        200, 200, 200, 200, 200, 200, // 3 short pulses (... = S)
-        500, 200, 500, 200, 500, 200, // 3 long pulses (--- = O)
-        200, 200, 200, 200, 200, 200, // 3 short pulses (... = S)
-        1000 // Pause before repeating
-      ];
-      
-      // Vibrate with SOS pattern and repeat
-      Vibration.vibrate(androidSOSPattern, true);
-    }
-  };
-  
-  const toggleFlashlight = async (on: boolean) => {
-    if (Platform.OS === 'web') return;
-    
-    try {
-      if (on) {
-        // Create a strobe effect - Clear existing interval if any
-        if (flashIntervalRef.current) {
-          clearInterval(flashIntervalRef.current);
-        }
-        
-        // Start with the flashlight on
-        setIsFlashlightOn(true);
-        
-        // Toggle at a faster rate (300ms) for more attention-grabbing effect
-        flashIntervalRef.current = setInterval(() => {
-          setIsFlashlightOn(prev => !prev);
-        }, 300);
-      } else {
-        // Turn off strobe effect
-        if (flashIntervalRef.current) {
-          clearInterval(flashIntervalRef.current);
-          flashIntervalRef.current = null;
-        }
-        setIsFlashlightOn(false);
-      }
-    } catch (e) {
-      console.error('Failed to toggle flashlight:', e);
+      // For Android, simple vibration
+      // Most Android devices allow a continuous vibration
+      Vibration.vibrate(1000);
     }
   };
   
@@ -154,13 +139,25 @@ export function useEmergencyAlerts() {
     setIsAlertActive(false);
     
     // Stop vibration
-    triggerVibration(false);
+    Vibration.cancel();
     
-    // Stop flashlight effect
+    // Clear intervals and timeouts
+    if (sequenceTimeoutRef.current) {
+      clearTimeout(sequenceTimeoutRef.current);
+      sequenceTimeoutRef.current = null;
+    }
+    
+    if (vibrationIntervalRef.current) {
+      clearInterval(vibrationIntervalRef.current);
+      vibrationIntervalRef.current = null;
+    }
+    
     if (flashIntervalRef.current) {
       clearInterval(flashIntervalRef.current);
       flashIntervalRef.current = null;
     }
+    
+    setIsVibrating(false);
     setIsFlashlightOn(false);
     
     // Stop sound if any

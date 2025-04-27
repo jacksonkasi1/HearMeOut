@@ -20,7 +20,8 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
   transcription,
   onClose
 }) => {
-  const { isFlashlightOn, isVibrating, triggerEmergencyAlerts } = useEmergencyAlerts();
+  const emergencyAlerts = useEmergencyAlerts();
+  const { isFlashlightOn, isVibrating, triggerEmergencyAlerts } = emergencyAlerts;
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(-300)).current;
@@ -201,6 +202,10 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
               )}
             </View>
             
+            <View style={styles.alertStatusBar}>
+              <Text style={styles.alertSequenceText}>Alert Sequence: Vibrate → Flash → Vibrate</Text>
+            </View>
+            
             <View style={styles.alertStatusContainer}>
               {/* Vibration status */}
               <View style={styles.statusItem}>
@@ -214,8 +219,8 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
                   </Animated.View>
                   <View style={[styles.vibrateIndicator, isVibrating && styles.vibrateActive]} />
                   <Text style={styles.statusText}>
-                    <Text style={styles.statusLabelText}>Vibrating</Text>
-                    {isVibrating ? ' Active' : ' Ready'}
+                    <Text style={styles.statusLabelText}>Vibration</Text>
+                    {isVibrating ? ' Active' : ' Idle'}
                   </Text>
                 </View>
               </View>
@@ -240,8 +245,8 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
                     <Feather name="zap" size={20} color={colors.textDark} />
                     <View style={[styles.flashlightIndicator, isFlashlightOn && styles.flashlightActive]} />
                     <Text style={styles.statusText}>
-                      <Text style={styles.statusLabelText}>Flashing</Text>
-                      {isFlashlightOn ? ' Active' : ' Ready'}
+                      <Text style={styles.statusLabelText}>Flashlight</Text>
+                      {isFlashlightOn ? ' Active' : ' Idle'}
                     </Text>
                   </View>
                 )}
@@ -316,6 +321,16 @@ const styles = StyleSheet.create({
     fontWeight: fonts.weights.bold,
     color: colors.textDark,
     marginLeft: spacing.sm,
+  },
+  alertStatusBar: {
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    padding: spacing.xs,
+    alignItems: 'center',
+  },
+  alertSequenceText: {
+    fontSize: fonts.sizes.sm,
+    color: colors.textDark,
+    fontWeight: fonts.weights.medium,
   },
   closeButton: {
     position: 'absolute',
