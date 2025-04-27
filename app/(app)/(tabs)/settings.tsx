@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,6 @@ import Slider from '@react-native-community/slider';
 export default function SettingsScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [debugInfo, setDebugInfo] = useState<string>('');
   
   const { 
     profile, 
@@ -41,7 +40,7 @@ export default function SettingsScreen() {
   const { user, getUserId, signOut } = useAuthStore();
   
   // Debug function to show current state
-  const showDebugInfo = () => {
+  const showDebugInfo = useCallback(() => {
     const info = {
       userId: getUserId(),
       hasProfile: !!profile,
@@ -52,82 +51,83 @@ export default function SettingsScreen() {
     };
     
     console.log('Debug Info:', JSON.stringify(info, null, 2));
-    setDebugInfo(JSON.stringify(info, null, 2));
     
     Alert.alert(
       'Debug Info',
       `User ID: ${getUserId() || 'None'}\nProfile Loaded: ${!!profile}\nError: ${profileError || 'None'}`,
       [{ text: 'OK' }]
     );
-  };
+  }, [profile, user, profileError, profileLoading, getUserId]);
   
+  // Load profile only once on component mount
   useEffect(() => {
+    let isMounted = true;
+    
     const loadProfile = async () => {
       try {
         console.log('Loading profile, user ID:', getUserId());
         await fetchProfile();
-        console.log('Profile state after fetch:', profile ? 'Loaded' : 'Not loaded');
+        if (isMounted) {
+          console.log('Profile state after fetch:', profile ? 'Loaded' : 'Not loaded');
+          setIsLoading(false);
+        }
       } catch (err) {
         console.error('Error in loadProfile effect:', err);
-      } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
     
     loadProfile();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, []);
   
-  // Profile debug effect
-  useEffect(() => {
-    console.log('Profile state changed:', { 
-      hasProfile: !!profile, 
-      isLoading, 
-      profileLoading,
-      error: profileError
-    });
-  }, [profile, isLoading, profileLoading, profileError]);
-  
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut();
     } catch (err) {
       console.error('Error signing out:', err);
     }
-  };
+  }, [signOut]);
   
-  const handleToggleFlashlight = async (value: boolean) => {
+  const handleToggleFlashlight = useCallback(async (value: boolean) => {
     try {
       await toggleFlashlight(value);
     } catch (err) {
       console.error('Error toggling flashlight:', err);
     }
-  };
+  }, [toggleFlashlight]);
   
-  const handleToggleVibration = async (value: boolean) => {
+  const handleToggleVibration = useCallback(async (value: boolean) => {
     try {
       await toggleVibration(value);
     } catch (err) {
       console.error('Error toggling vibration:', err);
     }
-  };
+  }, [toggleVibration]);
   
-  const handleToggleTranscription = async (value: boolean) => {
+  const handleToggleTranscription = useCallback(async (value: boolean) => {
     try {
       await toggleTranscription(value);
     } catch (err) {
       console.error('Error toggling transcription:', err);
     }
-  };
+  }, [toggleTranscription]);
   
-  const handleSensitivityChange = async (value: number) => {
+  const handleSensitivityChange = useCallback(async (value: number) => {
     try {
       await updateSensitivityLevel(Math.round(value));
     } catch (err) {
       console.error('Error updating sensitivity:', err);
     }
-  };
+  }, [updateSensitivityLevel]);
   
-  const handleFetchProfileAgain = async () => {
+  const handleFetchProfileAgain = useCallback(async () => {
     try {
       setIsLoading(true);
       console.log('Re-fetching profile, user ID:', getUserId());
@@ -138,7 +138,41 @@ export default function SettingsScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchProfile, getUserId, profile]);
+  
+  // Memoize the sensitivity level to prevent unnecessary re-renders
+  const sensitivityLevel = profile?.sensitivity_level ?? 3;
+  
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading settings...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
+  if (!profile) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>Could not load profile settings</Text>
+          {profileError && (
+            <Text style={styles.errorDetailText}>Error: {profileError}</Text>
+          )}
+          <Button 
+            title="Try Again" 
+            onPress={handleFetchProfileAgain}
+            style={styles.retryButton}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
   
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -151,144 +185,122 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
         
-        {/* Simple loading indicator while profile loads */}
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading settings...</Text>
-          </View>
-        ) : !profile ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.errorText}>Could not load profile settings</Text>
-            {profileError && (
-              <Text style={styles.errorDetailText}>Error: {profileError}</Text>
-            )}
-            <Button 
-              title="Try Again" 
-              onPress={handleFetchProfileAgain}
-              style={styles.retryButton}
+        {/* Alert Settings */}
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Alert Settings</Text>
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingTextContainer}>
+              <Text style={styles.settingLabel}>Flashlight Alerts</Text>
+              <Text style={styles.settingDescription}>
+                Flash device light during emergencies
+              </Text>
+            </View>
+            <Switch
+              value={profile.enable_flashlight ?? false}
+              onValueChange={handleToggleFlashlight}
+              trackColor={{ false: colors.textTertiary, true: colors.primary }}
+              thumbColor={colors.background}
             />
           </View>
-        ) : (
-          <>
-            {/* Alert Settings */}
-            <Card style={styles.section}>
-              <Text style={styles.sectionTitle}>Alert Settings</Text>
-              
-              <View style={styles.settingItem}>
-                <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Flashlight Alerts</Text>
-                  <Text style={styles.settingDescription}>
-                    Flash device light during emergencies
-                  </Text>
-                </View>
-                <Switch
-                  value={profile.enable_flashlight ?? false}
-                  onValueChange={handleToggleFlashlight}
-                  trackColor={{ false: colors.textTertiary, true: colors.primary }}
-                  thumbColor={colors.background}
-                />
-              </View>
-              
-              <View style={styles.divider} />
-              
-              <View style={styles.settingItem}>
-                <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Vibration Alerts</Text>
-                  <Text style={styles.settingDescription}>
-                    Vibrate device during emergencies
-                  </Text>
-                </View>
-                <Switch
-                  value={profile.enable_vibration ?? false}
-                  onValueChange={handleToggleVibration}
-                  trackColor={{ false: colors.textTertiary, true: colors.primary }}
-                  thumbColor={colors.background}
-                />
-              </View>
-              
-              <View style={styles.divider} />
-              
-              <View style={styles.settingItem}>
-                <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Live Transcription</Text>
-                  <Text style={styles.settingDescription}>
-                    Show real-time text of what's being said
-                  </Text>
-                </View>
-                <Switch
-                  value={profile.enable_transcription ?? false}
-                  onValueChange={handleToggleTranscription}
-                  trackColor={{ false: colors.textTertiary, true: colors.primary }}
-                  thumbColor={colors.background}
-                />
-              </View>
-            </Card>
-            
-            {/* Detection Settings */}
-            <Card style={styles.section}>
-              <Text style={styles.sectionTitle}>Detection Settings</Text>
-              
-              <TouchableOpacity
-                style={styles.settingItem}
-                onPress={() => router.push('/keywords')}
-              >
-                <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Emergency Keywords</Text>
-                  <Text style={styles.settingDescription}>
-                    Customize words that trigger alerts
-                  </Text>
-                </View>
-                <Feather name="chevron-right" size={20} color={colors.textTertiary} />
-              </TouchableOpacity>
-              
-              <View style={styles.divider} />
-              
-              <View style={styles.settingItem}>
-                <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Detection Sensitivity</Text>
-                  <Text style={styles.settingDescription}>
-                    Adjust how sensitive the detection is
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.sliderContainer}>
-                <Text style={styles.sliderLabel}>Low</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={1}
-                  maximumValue={5}
-                  step={1}
-                  value={profile.sensitivity_level ?? 3}
-                  onValueChange={handleSensitivityChange}
-                  minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor={colors.textTertiary}
-                  thumbTintColor={colors.primary}
-                />
-                <Text style={styles.sliderLabel}>High</Text>
-              </View>
-            </Card>
-            
-            {/* History */}
-            <Card style={styles.section}>
-              <Text style={styles.sectionTitle}>History</Text>
-              
-              <TouchableOpacity
-                style={styles.settingItem}
-                onPress={() => router.push('/history')}
-              >
-                <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Emergency History</Text>
-                  <Text style={styles.settingDescription}>
-                    View past detected emergencies
-                  </Text>
-                </View>
-                <Feather name="chevron-right" size={20} color={colors.textTertiary} />
-              </TouchableOpacity>
-            </Card>
-          </>
-        )}
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingTextContainer}>
+              <Text style={styles.settingLabel}>Vibration Alerts</Text>
+              <Text style={styles.settingDescription}>
+                Vibrate device during emergencies
+              </Text>
+            </View>
+            <Switch
+              value={profile.enable_vibration ?? false}
+              onValueChange={handleToggleVibration}
+              trackColor={{ false: colors.textTertiary, true: colors.primary }}
+              thumbColor={colors.background}
+            />
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingTextContainer}>
+              <Text style={styles.settingLabel}>Live Transcription</Text>
+              <Text style={styles.settingDescription}>
+                Show real-time text of what's being said
+              </Text>
+            </View>
+            <Switch
+              value={profile.enable_transcription ?? false}
+              onValueChange={handleToggleTranscription}
+              trackColor={{ false: colors.textTertiary, true: colors.primary }}
+              thumbColor={colors.background}
+            />
+          </View>
+        </Card>
+        
+        {/* Detection Settings */}
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>Detection Settings</Text>
+          
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/keywords')}
+          >
+            <View style={styles.settingTextContainer}>
+              <Text style={styles.settingLabel}>Emergency Keywords</Text>
+              <Text style={styles.settingDescription}>
+                Customize words that trigger alerts
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.settingItem}>
+            <View style={styles.settingTextContainer}>
+              <Text style={styles.settingLabel}>Detection Sensitivity</Text>
+              <Text style={styles.settingDescription}>
+                Adjust how sensitive the detection is
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.sliderContainer}>
+            <Text style={styles.sliderLabel}>Low</Text>
+            <Slider
+              style={styles.slider}
+              minimumValue={1}
+              maximumValue={5}
+              step={1}
+              value={sensitivityLevel}
+              onValueChange={handleSensitivityChange}
+              minimumTrackTintColor={colors.primary}
+              maximumTrackTintColor={colors.textTertiary}
+              thumbTintColor={colors.primary}
+            />
+            <Text style={styles.sliderLabel}>High</Text>
+          </View>
+        </Card>
+        
+        {/* History */}
+        <Card style={styles.section}>
+          <Text style={styles.sectionTitle}>History</Text>
+          
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/history')}
+          >
+            <View style={styles.settingTextContainer}>
+              <Text style={styles.settingLabel}>Emergency History</Text>
+              <Text style={styles.settingDescription}>
+                View past detected emergencies
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </Card>
         
         {/* Account - Always show this section */}
         <Card style={styles.section}>
