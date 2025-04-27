@@ -28,11 +28,18 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const vibrateAnim = useRef(new Animated.Value(0)).current;
   
-  // Restart emergency alerts when visible changes to true
+  // Restart emergency alerts when visible changes
   useEffect(() => {
     if (visible) {
       triggerEmergencyAlerts(true);
+    } else {
+      stopAllAlerts();
     }
+    
+    // Cleanup when component unmounts or visibility changes
+    return () => {
+      stopAllAlerts();
+    };
   }, [visible]);
   
   // Check camera permission on mount and when alert becomes visible
@@ -213,7 +220,7 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
             </View>
             
             <View style={styles.alertStatusBar}>
-              <Text style={styles.alertSequenceText}>Alert Sequence: Vibrate → Flash → Vibrate</Text>
+              <Text style={styles.alertSequenceText}>Alert Sequence: Vibrate (1s) → Flash (1s) → Vibrate (1.5s)</Text>
             </View>
             
             <View style={styles.alertStatusContainer}>

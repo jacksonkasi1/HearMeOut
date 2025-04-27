@@ -11,9 +11,14 @@ export function useEmergencyAlerts() {
   const [isVibrating, setIsVibrating] = useState(false);
   const { profile } = useProfileStore();
   const soundRef = useRef<Audio.Sound | null>(null);
-  const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const vibrationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const sequenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Use separate timeout references for better control
+  const sequenceIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const vibration1TimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const vibration2TimeoutRef = useRef<NodeJS.Timeout | null>(null); 
+  const flashOnTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const flashOffTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const flashlightIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Clean up on unmount
   useEffect(() => {
@@ -22,13 +27,15 @@ export function useEmergencyAlerts() {
     };
   }, []);
   
+  // Handle flashlight state and ensure it updates correctly
+  useEffect(() => {
+    console.log(`Flashlight state changed: ${isFlashlightOn ? 'ON' : 'OFF'}`);
+  }, [isFlashlightOn]);
+  
   // Toggle alerts based on profile settings and emergency state
   const triggerEmergencyAlerts = async (isEmergency: boolean) => {
     if (isEmergency) {
       setIsAlertActive(true);
-      
-      // Sequence of alerts: vibrate - flash - vibrate...
-      startAlertSequence();
       
       // Check for camera permission for flashlight
       if (Platform.OS !== 'web') {
@@ -41,6 +48,9 @@ export function useEmergencyAlerts() {
           console.error('Camera permission error:', error);
         }
       }
+      
+      // Sequence of alerts: vibrate - flash - vibrate...
+      startAlertSequence();
     } else {
       stopAllAlerts();
     }
@@ -48,60 +58,71 @@ export function useEmergencyAlerts() {
   
   const startAlertSequence = () => {
     // Clear any existing sequences
-    if (sequenceTimeoutRef.current) {
-      clearTimeout(sequenceTimeoutRef.current);
-    }
-    if (vibrationIntervalRef.current) {
-      clearInterval(vibrationIntervalRef.current);
-    }
-    if (flashIntervalRef.current) {
-      clearInterval(flashIntervalRef.current);
-    }
+    clearAllTimeouts();
     
     // Reset states
     setIsVibrating(false);
     setIsFlashlightOn(false);
     
-    // Start the sequence
-    runSequence();
+    // Start the initial sequence
+    startSequenceCycle();
     
     // Setup interval to continually run sequence
-    vibrationIntervalRef.current = setInterval(() => {
-      runSequence();
-    }, 4000); // Full cycle takes about 4 seconds
+    sequenceIntervalRef.current = setInterval(() => {
+      startSequenceCycle();
+    }, 5000); // Full cycle takes 5 seconds for more predictability
+    
+    // Backup method: Create a separate interval just for the flashlight
+    // This ensures the flashlight works even if other parts of the sequence fail
+    flashlightIntervalRef.current = setInterval(() => {
+      // Turn on flashlight
+      setIsFlashlightOn(true);
+      
+      // Schedule turning it off
+      setTimeout(() => {
+        setIsFlashlightOn(false);
+      }, 1000);
+    }, 5000); // Same cycle length as the main sequence
   };
   
-  const runSequence = () => {
-    // 1. Vibrate for 1 second
+  const startSequenceCycle = () => {
+    console.log('Starting new alert cycle');
+    
+    // 1. Start with vibration
     handleVibration(true);
     setIsVibrating(true);
     
-    // 2. Wait 0.2s, then turn off vibration
-    sequenceTimeoutRef.current = setTimeout(() => {
+    // 2. After 1 second, stop vibration and prepare for flashlight
+    vibration1TimeoutRef.current = setTimeout(() => {
       handleVibration(false);
       setIsVibrating(false);
+      console.log('First vibration complete, preparing for flash');
       
-      // 3. Flash for 0.5 second
-      sequenceTimeoutRef.current = setTimeout(() => {
+      // 3. Turn on flashlight after a short delay
+      flashOnTimeoutRef.current = setTimeout(() => {
+        console.log('Turning flashlight ON');
         setIsFlashlightOn(true);
         
-        // 4. Turn off flash, wait 0.2s
-        sequenceTimeoutRef.current = setTimeout(() => {
+        // 4. Keep flashlight on for 1 second (increased from 0.5s for better visibility)
+        flashOffTimeoutRef.current = setTimeout(() => {
+          console.log('Turning flashlight OFF');
           setIsFlashlightOn(false);
           
-          // 5. Vibrate again for 1.5 seconds
-          sequenceTimeoutRef.current = setTimeout(() => {
+          // 5. Start second vibration after a short delay
+          vibration2TimeoutRef.current = setTimeout(() => {
+            console.log('Starting second vibration');
             handleVibration(true);
             setIsVibrating(true);
             
-            // Turn off vibration
-            sequenceTimeoutRef.current = setTimeout(() => {
+            // Turn off second vibration after 1.5 seconds
+            setTimeout(() => {
               handleVibration(false);
               setIsVibrating(false);
+              console.log('Second vibration complete, cycle finished');
             }, 1500);
-          }, 200);
-        }, 500);
-      }, 200);
+          }, 500); // Increased delay before second vibration
+        }, 1000); // Increased flashlight duration
+      }, 500); // Increased delay before flashlight
     }, 1000);
   };
   
@@ -134,29 +155,51 @@ export function useEmergencyAlerts() {
       Vibration.vibrate(1000);
     }
   };
+
+  const clearAllTimeouts = () => {
+    // Clear all timeout references
+    if (sequenceIntervalRef.current) {
+      clearInterval(sequenceIntervalRef.current);
+      sequenceIntervalRef.current = null;
+    }
+    
+    if (vibration1TimeoutRef.current) {
+      clearTimeout(vibration1TimeoutRef.current);
+      vibration1TimeoutRef.current = null;
+    }
+    
+    if (vibration2TimeoutRef.current) {
+      clearTimeout(vibration2TimeoutRef.current);
+      vibration2TimeoutRef.current = null;
+    }
+    
+    if (flashOnTimeoutRef.current) {
+      clearTimeout(flashOnTimeoutRef.current);
+      flashOnTimeoutRef.current = null;
+    }
+    
+    if (flashOffTimeoutRef.current) {
+      clearTimeout(flashOffTimeoutRef.current);
+      flashOffTimeoutRef.current = null;
+    }
+    
+    if (flashlightIntervalRef.current) {
+      clearInterval(flashlightIntervalRef.current);
+      flashlightIntervalRef.current = null;
+    }
+  }
   
   const stopAllAlerts = () => {
+    console.log('Stopping all alerts');
     setIsAlertActive(false);
     
     // Stop vibration
     Vibration.cancel();
     
-    // Clear intervals and timeouts
-    if (sequenceTimeoutRef.current) {
-      clearTimeout(sequenceTimeoutRef.current);
-      sequenceTimeoutRef.current = null;
-    }
+    // Clear all timeouts and intervals
+    clearAllTimeouts();
     
-    if (vibrationIntervalRef.current) {
-      clearInterval(vibrationIntervalRef.current);
-      vibrationIntervalRef.current = null;
-    }
-    
-    if (flashIntervalRef.current) {
-      clearInterval(flashIntervalRef.current);
-      flashIntervalRef.current = null;
-    }
-    
+    // Reset states
     setIsVibrating(false);
     setIsFlashlightOn(false);
     
