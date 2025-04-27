@@ -1,7 +1,7 @@
 import React, { useState, createContext, PropsWithChildren, useEffect } from 'react'
 import { Session, User } from '@supabase/supabase-js';
 import { useAuthStore } from '@/stores/authStore';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Platform, PermissionsAndroid } from 'react-native';
 import { colors } from '@/constants/colors';
 
 type AuthProps = {
@@ -16,10 +16,38 @@ export const AuthProvider = ({ children, onLogout, onLogin }: PropsWithChildren<
     const { user, session, initialized, initialize } = useAuthStore();
     const [appIsReady, setAppIsReady] = useState<boolean>(false);
 
+    // Request Android permissions if needed
+    const requestAndroidPermissions = async () => {
+        if (Platform.OS !== 'android') return;
+        
+        try {
+            console.log('Requesting Android vibration permission');
+            // Vibration doesn't actually need runtime permission on Android 6.0+
+            // but we'll try to ensure it's explicitly granted
+            const granted = await PermissionsAndroid.request(
+                PermissionsAndroid.PERMISSIONS.VIBRATE,
+                {
+                    title: "Vibration Permission",
+                    message: "HearMeOut needs vibration permission for emergency alerts",
+                    buttonNeutral: "Ask Me Later",
+                    buttonNegative: "Cancel",
+                    buttonPositive: "OK"
+                }
+            );
+            console.log(`Vibration permission status: ${granted}`);
+        } catch (err) {
+            console.warn('Error requesting vibration permission:', err);
+        }
+    };
+
     useEffect(() => {
         async function prepare() {
             try {
-                await initialize()
+                // Request permissions first
+                await requestAndroidPermissions();
+                
+                // Then initialize auth
+                await initialize();
             } finally {
                 setAppIsReady(true);
             }

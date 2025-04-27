@@ -17,14 +17,15 @@ module.exports = {
   ],
   ios: {
     supportsTablet: true,
-    bundleIdentifier: "com.yourcompany.hearmeout"
+    bundleIdentifier: "com.jacksonkasi.hearmeout"
   },
   android: {
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon/foreground.png",
       backgroundColor: "#ffffff"
     },
-    package: "com.yourcompany.hearmeout"
+    package: "com.jacksonkasi.hearmeout",
+    permissions: ["android.permission.VIBRATE"]
   },
   web: {
     favicon: "./assets/favicon.png",

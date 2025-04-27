@@ -31,13 +31,16 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
   // Restart emergency alerts when visible changes
   useEffect(() => {
     if (visible) {
+      console.log("EmergencyAlert is now visible, triggering alerts");
       triggerEmergencyAlerts(true);
     } else {
+      console.log("EmergencyAlert is now hidden, stopping alerts");
       stopAllAlerts();
     }
     
     // Cleanup when component unmounts or visibility changes
     return () => {
+      console.log("EmergencyAlert cleanup called");
       stopAllAlerts();
     };
   }, [visible]);
@@ -56,6 +59,11 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
     } else {
       vibrateAnim.setValue(0);
     }
+  }, [isVibrating]);
+  
+  // Monitor vibration state with better logging
+  useEffect(() => {
+    console.log(`Vibration state changed: ${isVibrating ? "ACTIVE" : "INACTIVE"}`);
   }, [isVibrating]);
   
   const checkPermission = async () => {

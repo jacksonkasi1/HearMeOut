@@ -127,32 +127,48 @@ export function useEmergencyAlerts() {
   };
   
   const handleVibration = (on: boolean) => {
+    console.log(`Handling vibration: ${on ? 'ON' : 'OFF'}`);
+    
     if (!on) {
       // Stop vibration
+      console.log('Canceling vibration');
       Vibration.cancel();
       return;
     }
     
-    // For iOS, use Haptics for better feedback
-    if (Platform.OS === 'ios') {
-      const iosVibrationPattern = async () => {
-        try {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          // iOS can't sustain long vibrations with Haptics API, so we'll pulse it
-          await new Promise(resolve => setTimeout(resolve, 200));
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          await new Promise(resolve => setTimeout(resolve, 200));
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        } catch (error) {
-          console.error('Haptics error:', error);
-        }
-      };
-      
-      iosVibrationPattern();
-    } else {
-      // For Android, simple vibration
-      // Most Android devices allow a continuous vibration
-      Vibration.vibrate(1000);
+    try {
+      // For iOS, use Haptics for better feedback
+      if (Platform.OS === 'ios') {
+        const iosVibrationPattern = async () => {
+          try {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            // iOS can't sustain long vibrations with Haptics API, so we'll pulse it
+            await new Promise(resolve => setTimeout(resolve, 200));
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          } catch (error) {
+            console.error('Haptics error:', error);
+          }
+        };
+        
+        iosVibrationPattern();
+      } else {
+        // For Android, use a repeating pattern for stronger vibration
+        // Pattern is in milliseconds: [wait, vibrate, wait, vibrate, ...]
+        console.log('Starting Android vibration pattern');
+        
+        // This creates a more noticeable vibration pattern
+        // Wait 0ms -> vibrate 300ms -> wait 100ms -> vibrate 500ms
+        const pattern = [0, 300, 100, 500];
+        
+        // Second parameter means don't repeat (-1 is no repeat, 0 is infinite repeat)
+        Vibration.vibrate(pattern, false);
+        
+        console.log('Android vibration started with pattern:', pattern);
+      }
+    } catch (error) {
+      console.error('Error in vibration handling:', error);
     }
   };
 
