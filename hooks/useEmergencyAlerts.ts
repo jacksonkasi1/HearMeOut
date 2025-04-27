@@ -8,21 +8,25 @@ import { Camera } from 'expo-camera';
 export function useEmergencyAlerts() {
   const [isAlertActive, setIsAlertActive] = useState(false);
   const [isFlashlightOn, setIsFlashlightOn] = useState(false);
+  const [isVibrating, setIsVibrating] = useState(false);
   const { profile } = useProfileStore();
   const soundRef = useRef<Audio.Sound | null>(null);
   const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const vibrationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Clean up on unmount
   useEffect(() => {
     return () => {
       stopAllAlerts();
     };
   }, []);
+  
   // Toggle alerts based on profile settings and emergency state
   const triggerEmergencyAlerts = async (isEmergency: boolean) => {
     if (isEmergency && profile) {
       setIsAlertActive(true);
       if (profile.enable_vibration) {
-        triggerVibration();
+        triggerVibration(true);
       }
       if (profile.enable_flashlight && Platform.OS !== 'web') {
         try {
@@ -38,21 +42,82 @@ export function useEmergencyAlerts() {
       stopAllAlerts();
     }
   };
-  const triggerVibration = () => {
+  
+  const triggerVibration = (on: boolean) => {
+    if (!on) {
+      // Stop vibration
+      Vibration.cancel();
+      if (vibrationIntervalRef.current) {
+        clearInterval(vibrationIntervalRef.current);
+        vibrationIntervalRef.current = null;
+      }
+      setIsVibrating(false);
+      return;
+    }
+    
+    setIsVibrating(true);
+    
     // For iOS, use Haptics for better feedback
     if (Platform.OS === 'ios') {
-      const interval = setInterval(() => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }, 1000);
-      return () => clearInterval(interval);
+      // SOS pattern using Haptics (3 short, 3 long, 3 short)
+      const iosVibrationPattern = async () => {
+        // Short pulses (3 times)
+        for (let i = 0; i < 3; i++) {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+        // Slight pause
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Long pulses (3 times)
+        for (let i = 0; i < 3; i++) {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          await new Promise(resolve => setTimeout(resolve, 200));
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        // Slight pause
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Short pulses (3 times)
+        for (let i = 0; i < 3; i++) {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      };
+      
+      // Run the pattern immediately
+      iosVibrationPattern();
+      
+      // Repeat the pattern every 5 seconds
+      vibrationIntervalRef.current = setInterval(() => {
+        iosVibrationPattern();
+      }, 5000);
+      
+      return;
     } else {
       // For Android, use pattern vibration
-      // Vibrate for 500ms, pause for 500ms, repeat
-      Vibration.vibrate([500, 500], true);
+      // SOS pattern: ... --- ...
+      // Short pulse: 200ms vibrate, 200ms pause
+      // Long pulse: 500ms vibrate, 200ms pause
+      const androidSOSPattern = [
+        0, // Initial delay
+        200, 200, 200, 200, 200, 200, // 3 short pulses (... = S)
+        500, 200, 500, 200, 500, 200, // 3 long pulses (--- = O)
+        200, 200, 200, 200, 200, 200, // 3 short pulses (... = S)
+        1000 // Pause before repeating
+      ];
+      
+      // Vibrate with SOS pattern and repeat
+      Vibration.vibrate(androidSOSPattern, true);
     }
   };
+  
   const toggleFlashlight = async (on: boolean) => {
     if (Platform.OS === 'web') return;
+    
     try {
       if (on) {
         // Create a strobe effect - Clear existing interval if any
@@ -79,16 +144,20 @@ export function useEmergencyAlerts() {
       console.error('Failed to toggle flashlight:', e);
     }
   };
+  
   const stopAllAlerts = () => {
     setIsAlertActive(false);
+    
     // Stop vibration
-    Vibration.cancel();
+    triggerVibration(false);
+    
     // Stop flashlight effect
     if (flashIntervalRef.current) {
       clearInterval(flashIntervalRef.current);
       flashIntervalRef.current = null;
     }
     setIsFlashlightOn(false);
+    
     // Stop sound if any
     if (soundRef.current) {
       soundRef.current.unloadAsync().catch((e) => {
@@ -97,9 +166,11 @@ export function useEmergencyAlerts() {
       soundRef.current = null;
     }
   };
+  
   return {
     isAlertActive,
     isFlashlightOn,
+    isVibrating,
     triggerEmergencyAlerts,
     stopAllAlerts,
   };

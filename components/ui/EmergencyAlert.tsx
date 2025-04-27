@@ -20,11 +20,12 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
   transcription,
   onClose
 }) => {
-  const { isFlashlightOn } = useEmergencyAlerts();
+  const { isFlashlightOn, isVibrating } = useEmergencyAlerts();
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const vibrateAnim = useRef(new Animated.Value(0)).current;
   
   // Check camera permission on mount and when alert becomes visible
   useEffect(() => {
@@ -32,6 +33,15 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
       checkPermission();
     }
   }, [visible]);
+  
+  // Start vibration animation when vibrating
+  useEffect(() => {
+    if (isVibrating) {
+      startVibrateAnimation();
+    } else {
+      vibrateAnim.setValue(0);
+    }
+  }, [isVibrating]);
   
   const checkPermission = async () => {
     try {
@@ -103,6 +113,31 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
     ).start();
   };
   
+  const startVibrateAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(vibrateAnim, {
+          toValue: 2,
+          duration: 50,
+          useNativeDriver: true,
+          easing: Easing.linear
+        }),
+        Animated.timing(vibrateAnim, {
+          toValue: -2,
+          duration: 50,
+          useNativeDriver: true,
+          easing: Easing.linear
+        }),
+        Animated.timing(vibrateAnim, {
+          toValue: 0,
+          duration: 50,
+          useNativeDriver: true,
+          easing: Easing.linear
+        })
+      ])
+    ).start();
+  };
+  
   return (
     <>
       {/* Hidden camera for flashlight functionality */}
@@ -132,7 +167,8 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
               { 
                 transform: [
                   { translateY: slideAnim },
-                  { scale: pulseAnim }
+                  { scale: pulseAnim },
+                  { translateX: vibrateAnim }
                 ] 
               }
             ]}
@@ -158,28 +194,43 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
               )}
             </View>
             
-            <View style={styles.flashlightStatusContainer}>
-              {hasCameraPermission === false && (
-                <TouchableOpacity 
-                  style={styles.permissionButton}
-                  onPress={requestPermission}
-                  activeOpacity={0.7}
-                >
-                  <Feather name="zap" size={16} color={colors.textDark} style={styles.actionButtonIcon} />
-                  <Text style={styles.flashlightStatusText}>
-                    Enable Flashlight
-                  </Text>
-                </TouchableOpacity>
-              )}
+            <View style={styles.alertStatusContainer}>
+              {/* Flashlight status */}
+              <View style={styles.statusItem}>
+                {hasCameraPermission === false && (
+                  <TouchableOpacity 
+                    style={styles.permissionButton}
+                    onPress={requestPermission}
+                    activeOpacity={0.7}
+                  >
+                    <Feather name="zap" size={16} color={colors.textDark} style={styles.actionButtonIcon} />
+                    <Text style={styles.flashlightStatusText}>
+                      Enable Flashlight
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                
+                {hasCameraPermission === true && (
+                  <View style={styles.statusIndicator}>
+                    <Feather name="zap" size={16} color={colors.textDark} />
+                    <View style={[styles.flashlightIndicator, isFlashlightOn && styles.flashlightActive]} />
+                    <Text style={styles.statusText}>
+                      {isFlashlightOn ? 'Flashing' : 'Ready'}
+                    </Text>
+                  </View>
+                )}
+              </View>
               
-              {hasCameraPermission === true && (
-                <>
-                  <View style={[styles.flashlightIndicator, isFlashlightOn && styles.flashlightActive]} />
-                  <Text style={styles.flashlightStatusText}>
-                    Flashlight {isFlashlightOn ? 'On' : 'Off'}
+              {/* Vibration status */}
+              <View style={styles.statusItem}>
+                <View style={styles.statusIndicator}>
+                  <Feather name="activity" size={16} color={colors.textDark} />
+                  <View style={[styles.vibrateIndicator, isVibrating && styles.vibrateActive]} />
+                  <Text style={styles.statusText}>
+                    {isVibrating ? 'Vibrating' : 'Ready'}
                   </Text>
-                </>
-              )}
+                </View>
+              </View>
             </View>
             
             {keyword && (
@@ -262,19 +313,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.1)',
   },
-  flashlightStatusContainer: {
+  alertStatusContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: spacing.xs,
     backgroundColor: 'rgba(0,0,0,0.1)',
+    justifyContent: 'space-around',
+  },
+  statusItem: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
   },
   flashlightIndicator: {
     width: 10,
     height: 10,
     borderRadius: 5,
     backgroundColor: 'rgba(255,255,255,0.5)',
-    marginRight: spacing.xs,
+    marginHorizontal: spacing.xs,
   },
   flashlightActive: {
     backgroundColor: '#fff',
@@ -282,6 +341,25 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 5,
+  },
+  vibrateIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: spacing.xs,
+  },
+  vibrateActive: {
+    backgroundColor: '#fff',
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+  },
+  statusText: {
+    fontSize: fonts.sizes.sm,
+    color: colors.textDark,
+    fontWeight: fonts.weights.medium,
   },
   flashlightStatusText: {
     fontSize: fonts.sizes.sm,
