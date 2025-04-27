@@ -94,7 +94,7 @@ npx expo start
 
 ## 🎥 Demo
 
-[![Watch the Demo](https://img.youtube.com/vi/yourdemoid/maxresdefault.jpg)](https://www.youtube.com/watch?v=yourdemoid)
+[![Watch the Demo](https://img.youtube.com/vi/yourdemoid/maxresdefault.jpg)](https://www.youtube.com/watch?v=xxxxxxxxx)
 
 _(Replace with your YouTube demo video link!)_
 
