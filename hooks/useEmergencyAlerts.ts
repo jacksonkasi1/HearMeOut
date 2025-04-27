@@ -55,14 +55,20 @@ export function useEmergencyAlerts() {
     if (Platform.OS === 'web') return;
     try {
       if (on) {
-        // Create a strobe effect (simulated)
+        // Create a strobe effect - Clear existing interval if any
         if (flashIntervalRef.current) {
           clearInterval(flashIntervalRef.current);
         }
+        
+        // Start with the flashlight on
+        setIsFlashlightOn(true);
+        
+        // Toggle at a faster rate (300ms) for more attention-grabbing effect
         flashIntervalRef.current = setInterval(() => {
           setIsFlashlightOn(prev => !prev);
-        }, 500);
+        }, 300);
       } else {
+        // Turn off strobe effect
         if (flashIntervalRef.current) {
           clearInterval(flashIntervalRef.current);
           flashIntervalRef.current = null;

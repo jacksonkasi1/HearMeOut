@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Easing } from 'react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { fonts } from '@/constants/fonts';
-import { CameraView } from 'expo-camera';
+import { CameraView, Camera } from 'expo-camera';
 import { useEmergencyAlerts } from '@/hooks/useEmergencyAlerts';
 import { Feather } from '@expo/vector-icons';
 
@@ -21,9 +21,24 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
   onClose
 }) => {
   const { isFlashlightOn } = useEmergencyAlerts();
+  const [hasCameraPermission, setHasCameraPermission] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    // Request camera permissions when alert becomes visible
+    if (visible) {
+      (async () => {
+        try {
+          const { status } = await Camera.requestCameraPermissionsAsync();
+          setHasCameraPermission(status === 'granted');
+        } catch (error) {
+          console.error('Error requesting camera permission:', error);
+        }
+      })();
+    }
+  }, [visible]);
   
   useEffect(() => {
     if (visible) {
@@ -78,7 +93,7 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
   return (
     <>
       {/* Hidden camera for flashlight functionality */}
-      {visible && (
+      {visible && hasCameraPermission && (
         <View style={styles.hiddenCamera}>
           <CameraView 
             style={{ width: 1, height: 1 }}
@@ -90,7 +105,7 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
       <Modal
         visible={visible}
         transparent={true}
-        animationType="fade"
+        animationType="none" // Changed to none since we handle animation ourselves
       >
         <Animated.View 
           style={[
@@ -128,6 +143,13 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
                   <Feather name="x" size={24} color={colors.textDark} />
                 </TouchableOpacity>
               )}
+            </View>
+            
+            <View style={styles.flashlightStatusContainer}>
+              <View style={[styles.flashlightIndicator, isFlashlightOn && styles.flashlightActive]} />
+              <Text style={styles.flashlightStatusText}>
+                Flashlight {isFlashlightOn ? 'On' : 'Off'}
+              </Text>
             </View>
             
             {keyword && (
@@ -210,6 +232,32 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'rgba(0,0,0,0.1)',
   },
+  flashlightStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  flashlightIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginRight: spacing.xs,
+  },
+  flashlightActive: {
+    backgroundColor: '#fff',
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+  },
+  flashlightStatusText: {
+    fontSize: fonts.sizes.sm,
+    color: colors.textDark,
+    fontWeight: fonts.weights.medium,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -253,6 +301,7 @@ const styles = StyleSheet.create({
     width: 1,
     height: 1,
     opacity: 0,
+    zIndex: 999,
   },
   actionButton: {
     margin: spacing.md,
