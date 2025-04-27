@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   ScrollView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -19,45 +20,76 @@ import { useProfileStore } from '@/stores/profileStore';
 import { toast } from '@/components/ui/Toast';
 
 export const EmergencyKeywordEditor: React.FC = () => {
-  const { profile, updateEmergencyKeywords } = useProfileStore();
+  // Component state
+  const { profile, updateEmergencyKeywords, loading } = useProfileStore();
   const [keywords, setKeywords] = useState<string[]>([]);
   const [newKeyword, setNewKeyword] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   
+  // Initialize keywords from profile
   useEffect(() => {
-    if (profile?.emergency_keywords) {
-      setKeywords([...profile.emergency_keywords]);
+    if (profile?.emergency_keywords && !isInitialized) {
+      try {
+        setKeywords(Array.isArray(profile.emergency_keywords) 
+          ? [...profile.emergency_keywords] 
+          : []);
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Error initializing keywords:', error);
+        setKeywords([]);
+        setIsInitialized(true);
+      }
     }
-  }, [profile]);
+  }, [profile, isInitialized]);
   
-  const handleAddKeyword = () => {
+  const handleAddKeyword = useCallback(() => {
     if (!newKeyword.trim()) {
       toast.error('Keyword cannot be empty');
       return;
     }
     
-    if (keywords.includes(newKeyword.toLowerCase().trim())) {
+    const trimmedKeyword = newKeyword.toLowerCase().trim();
+    
+    if (keywords.includes(trimmedKeyword)) {
       toast.error('Keyword already exists');
       return;
     }
     
-    setKeywords([...keywords, newKeyword.toLowerCase().trim()]);
+    setKeywords(prevKeywords => [...prevKeywords, trimmedKeyword]);
     setNewKeyword('');
-  };
+  }, [newKeyword, keywords]);
   
-  const handleRemoveKeyword = (index: number) => {
-    const updatedKeywords = [...keywords];
-    updatedKeywords.splice(index, 1);
-    setKeywords(updatedKeywords);
-  };
+  const handleRemoveKeyword = useCallback((index: number) => {
+    setKeywords(prevKeywords => {
+      const updatedKeywords = [...prevKeywords];
+      updatedKeywords.splice(index, 1);
+      return updatedKeywords;
+    });
+  }, []);
   
-  const handleSaveKeywords = async () => {
+  const handleSaveKeywords = useCallback(async () => {
     try {
+      setIsSaving(true);
       await updateEmergencyKeywords(keywords);
       toast.success('Keywords updated successfully');
     } catch (error) {
+      console.error('Failed to update keywords:', error);
       toast.error('Failed to update keywords');
+    } finally {
+      setIsSaving(false);
     }
-  };
+  }, [keywords, updateEmergencyKeywords]);
+  
+  // Show loading state if profile data is not yet available
+  if (loading && !isInitialized) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading keywords...</Text>
+      </View>
+    );
+  }
   
   return (
     <KeyboardAvoidingView
@@ -79,16 +111,26 @@ export const EmergencyKeywordEditor: React.FC = () => {
             onSubmitEditing={handleAddKeyword}
           />
           <TouchableOpacity 
-            style={styles.addButton}
+            style={[
+              styles.addButton,
+              !newKeyword.trim() && styles.addButtonDisabled
+            ]}
             onPress={handleAddKeyword}
+            disabled={!newKeyword.trim()}
           >
             <Feather name="plus" size={24} color={colors.textDark} />
           </TouchableOpacity>
         </Card>
         
         <View style={styles.keywordsContainer}>
+          {keywords.length === 0 && (
+            <Text style={styles.emptyStateText}>
+              No keywords added yet. Add keywords to detect emergencies.
+            </Text>
+          )}
+          
           {keywords.map((keyword, index) => (
-            <View key={index} style={styles.keywordItem}>
+            <View key={`keyword-${index}-${keyword}`} style={styles.keywordItem}>
               <Text style={styles.keywordText}>{keyword}</Text>
               <TouchableOpacity
                 onPress={() => handleRemoveKeyword(index)}
@@ -101,9 +143,10 @@ export const EmergencyKeywordEditor: React.FC = () => {
         </View>
         
         <Button
-          title="Save Keywords"
+          title={isSaving ? "Saving..." : "Save Keywords"}
           onPress={handleSaveKeywords}
           style={styles.saveButton}
+          disabled={isSaving}
         />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -117,6 +160,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: spacing.md,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: fonts.sizes.md,
+    color: colors.textSecondary,
   },
   title: {
     fontSize: fonts.sizes.xl,
@@ -148,8 +202,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  addButtonDisabled: {
+    backgroundColor: colors.textTertiary,
+  },
   keywordsContainer: {
     marginBottom: spacing.xl,
+  },
+  emptyStateText: {
+    fontSize: fonts.sizes.md,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginVertical: spacing.lg,
+    fontStyle: 'italic',
   },
   keywordItem: {
     flexDirection: 'row',
