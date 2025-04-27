@@ -6,6 +6,7 @@ module.exports = {
   icon: "./assets/icon.png",
   userInterfaceStyle: "light",
   scheme: "hearmeout", // This is the necessary scheme for Expo linking
+  owner: "jacksonkasi",
   splash: {
     image: "./assets/splash.png",
     resizeMode: "contain",
