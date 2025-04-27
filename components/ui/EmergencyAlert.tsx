@@ -21,24 +21,37 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
   onClose
 }) => {
   const { isFlashlightOn } = useEmergencyAlerts();
-  const [hasCameraPermission, setHasCameraPermission] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
+  // Check camera permission on mount and when alert becomes visible
   useEffect(() => {
-    // Request camera permissions when alert becomes visible
     if (visible) {
-      (async () => {
-        try {
-          const { status } = await Camera.requestCameraPermissionsAsync();
-          setHasCameraPermission(status === 'granted');
-        } catch (error) {
-          console.error('Error requesting camera permission:', error);
-        }
-      })();
+      checkPermission();
     }
   }, [visible]);
+  
+  const checkPermission = async () => {
+    try {
+      const { status } = await Camera.getCameraPermissionsAsync();
+      setHasCameraPermission(status === 'granted');
+    } catch (error) {
+      console.error('Error checking camera permission:', error);
+      setHasCameraPermission(false);
+    }
+  };
+  
+  const requestPermission = async () => {
+    try {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasCameraPermission(status === 'granted');
+    } catch (error) {
+      console.error('Error requesting camera permission:', error);
+      setHasCameraPermission(false);
+    }
+  };
   
   useEffect(() => {
     if (visible) {
@@ -146,10 +159,27 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
             </View>
             
             <View style={styles.flashlightStatusContainer}>
-              <View style={[styles.flashlightIndicator, isFlashlightOn && styles.flashlightActive]} />
-              <Text style={styles.flashlightStatusText}>
-                Flashlight {isFlashlightOn ? 'On' : 'Off'}
-              </Text>
+              {hasCameraPermission === false && (
+                <TouchableOpacity 
+                  style={styles.permissionButton}
+                  onPress={requestPermission}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="zap" size={16} color={colors.textDark} style={styles.actionButtonIcon} />
+                  <Text style={styles.flashlightStatusText}>
+                    Enable Flashlight
+                  </Text>
+                </TouchableOpacity>
+              )}
+              
+              {hasCameraPermission === true && (
+                <>
+                  <View style={[styles.flashlightIndicator, isFlashlightOn && styles.flashlightActive]} />
+                  <Text style={styles.flashlightStatusText}>
+                    Flashlight {isFlashlightOn ? 'On' : 'Off'}
+                  </Text>
+                </>
+              )}
             </View>
             
             {keyword && (
@@ -257,6 +287,14 @@ const styles = StyleSheet.create({
     fontSize: fonts.sizes.sm,
     color: colors.textDark,
     fontWeight: fonts.weights.medium,
+  },
+  permissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
