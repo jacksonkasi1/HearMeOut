@@ -21,7 +21,7 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
   onClose
 }) => {
   const emergencyAlerts = useEmergencyAlerts();
-  const { isFlashlightOn, isVibrating, triggerEmergencyAlerts } = emergencyAlerts;
+  const { isFlashlightOn, isVibrating, triggerEmergencyAlerts, stopAllAlerts } = emergencyAlerts;
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(-300)).current;
@@ -146,6 +146,16 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
     ).start();
   };
   
+  const handleClose = () => {
+    // Ensure we stop all alerts before closing
+    stopAllAlerts();
+    
+    // Then call the parent's onClose callback if provided
+    if (onClose) {
+      onClose();
+    }
+  };
+  
   return (
     <>
       {/* Hidden camera for flashlight functionality */}
@@ -194,7 +204,7 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
               {onClose && (
                 <TouchableOpacity 
                   style={styles.closeButton} 
-                  onPress={onClose}
+                  onPress={handleClose}
                   activeOpacity={0.7}
                 >
                   <Feather name="x" size={24} color={colors.textDark} />
@@ -233,7 +243,7 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
                     onPress={requestPermission}
                     activeOpacity={0.7}
                   >
-                    <Feather name="zap" size={16} color={colors.textDark} style={styles.actionButtonIcon} />
+                    <Feather name="zap" size={16} color={colors.textDark} style={{ marginRight: spacing.xs }} />
                     <Text style={styles.flashlightStatusText}>
                       Enable Flashlight
                     </Text>
@@ -273,7 +283,7 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
             
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={onClose}
+              onPress={handleClose}
               activeOpacity={0.8}
             >
               <Feather name="x-circle" size={18} color={colors.textDark} style={styles.actionButtonIcon} />
