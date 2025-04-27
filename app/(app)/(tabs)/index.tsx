@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
@@ -6,27 +6,82 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { fonts } from '@/constants/fonts';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useEmergencyAlerts } from '@/hooks/useEmergencyAlerts';
+import { EmergencyAlert } from '@/components/ui/EmergencyAlert';
 
 export default function ListenScreen() {
   const [isListening, setIsListening] = useState(false);
+  const [emergencyActive, setEmergencyActive] = useState(false);
+  const [currentKeyword, setCurrentKeyword] = useState<string | null>(null);
+  const [transcription, setTranscription] = useState<string | null>(null);
+  
+  const { 
+    isAlertActive, 
+    triggerEmergencyAlerts, 
+    stopAllAlerts 
+  } = useEmergencyAlerts();
+  
+  // Reset alerts when component unmounts
+  useEffect(() => {
+    return () => {
+      stopAllAlerts();
+    };
+  }, [stopAllAlerts]);
   
   const toggleListening = () => {
     setIsListening(!isListening);
+    
+    // If turning off listening, also clear any active emergency
+    if (isListening) {
+      handleClearEmergency();
+    }
   };
   
   const simulateEmergency = () => {
-    // Add emergency simulation logic here
+    // Simulate detection of emergency keyword "fire"
+    const keyword = 'fire';
+    const simulatedTranscription = 'I think there is a fire in the building! Everyone evacuate now!';
+    
+    // Activate emergency alerts
+    setEmergencyActive(true);
+    setCurrentKeyword(keyword);
+    setTranscription(simulatedTranscription);
+    
+    // Trigger system alerts (vibration, flashlight, etc.)
+    triggerEmergencyAlerts(true);
+    
     console.log('Emergency simulated');
   };
   
   const simulateNormal = () => {
-    // Add normal state simulation logic here
+    // Clear emergency state
+    handleClearEmergency();
+    
     console.log('Normal state simulated');
+  };
+  
+  const handleClearEmergency = () => {
+    // Reset emergency state
+    setEmergencyActive(false);
+    setCurrentKeyword(null);
+    setTranscription(null);
+    
+    // Stop system alerts
+    triggerEmergencyAlerts(false);
   };
   
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor={colors.background} />
+      
+      {/* Emergency alert overlay */}
+      <EmergencyAlert 
+        visible={emergencyActive} 
+        keyword={currentKeyword}
+        transcription={transcription || ''}
+        onClose={handleClearEmergency}
+      />
+      
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>HearMeOut</Text>
@@ -34,23 +89,48 @@ export default function ListenScreen() {
         </View>
         
         <View style={styles.statusContainer}>
-          <View style={[styles.statusDot, {backgroundColor: isListening ? colors.success : colors.textTertiary}]} />
-          <Text style={styles.statusText}>
-            {isListening ? 'Listening for emergencies...' : 'Monitoring paused'}
+          <View 
+            style={[
+              styles.statusDot, 
+              {
+                backgroundColor: emergencyActive 
+                  ? colors.danger 
+                  : isListening 
+                    ? colors.success 
+                    : colors.textTertiary
+              }
+            ]} 
+          />
+          <Text style={[
+            styles.statusText,
+            emergencyActive && styles.emergencyStatusText
+          ]}>
+            {emergencyActive 
+              ? 'EMERGENCY DETECTED' 
+              : isListening 
+                ? 'Listening for emergencies...' 
+                : 'Monitoring paused'
+            }
           </Text>
         </View>
         
         <TouchableOpacity 
-          style={styles.listenButton} 
+          style={[
+            styles.listenButton,
+            emergencyActive && styles.emergencyListenButton
+          ]} 
           onPress={toggleListening}
           activeOpacity={0.8}
         >
           <Feather 
             name={isListening ? "mic-off" : "mic"} 
             size={40} 
-            color="black" 
+            color={emergencyActive ? colors.textDark : colors.text} 
           />
-          <Text style={styles.listenButtonText}>
+          <Text style={[
+            styles.listenButtonText,
+            emergencyActive && styles.emergencyListenButtonText
+          ]}>
             {isListening ? 'Stop Listening' : 'Start Listening'}
           </Text>
         </TouchableOpacity>
@@ -59,17 +139,25 @@ export default function ListenScreen() {
           <Text style={styles.demoTitle}>Demo Controls</Text>
           <View style={styles.demoButtonsContainer}>
             <TouchableOpacity 
-              style={styles.demoButton}
+              style={[
+                styles.demoButton,
+                emergencyActive && styles.disabledDemoButton
+              ]}
               onPress={simulateEmergency}
+              disabled={emergencyActive}
             >
               <Text style={styles.demoButtonText}>Simulate Emergency</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.demoButton}
+              style={[
+                styles.demoButton,
+                !emergencyActive && styles.disabledDemoButton
+              ]}
               onPress={simulateNormal}
+              disabled={!emergencyActive}
             >
-              <Text style={styles.demoButtonText}>Simulate Normal</Text>
+              <Text style={styles.demoButtonText}>Clear Emergency</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -118,6 +206,10 @@ const styles = StyleSheet.create({
     fontSize: fonts.sizes.md,
     color: colors.textSecondary,
   },
+  emergencyStatusText: {
+    color: colors.danger,
+    fontWeight: fonts.weights.bold,
+  },
   listenButton: {
     width: 160,
     height: 160,
@@ -132,11 +224,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  emergencyListenButton: {
+    backgroundColor: colors.danger,
+  },
   listenButtonText: {
     marginTop: spacing.sm,
     fontSize: fonts.sizes.md,
     fontWeight: fonts.weights.medium,
     color: colors.text,
+  },
+  emergencyListenButtonText: {
+    color: colors.textDark,
   },
   demoControls: {
     width: '100%',
@@ -160,6 +258,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.lg,
     marginHorizontal: spacing.sm,
+  },
+  disabledDemoButton: {
+    opacity: 0.5,
   },
   demoButtonText: {
     fontSize: fonts.sizes.sm,

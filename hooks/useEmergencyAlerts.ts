@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Vibration } from 'react-native';
+import { Vibration, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useProfileStore } from '@/stores/profileStore';
 import { Audio } from 'expo-av';
-import { Platform } from 'react-native';
-import * as Camera from 'expo-camera';
+import { Camera } from 'expo-camera';
 
 export function useEmergencyAlerts() {
   const [isAlertActive, setIsAlertActive] = useState(false);
@@ -25,8 +24,15 @@ export function useEmergencyAlerts() {
       if (profile.enable_vibration) {
         triggerVibration();
       }
-      if (profile.enable_flashlight && Platform.OS !== 'web' && Camera.Camera.isAvailableAsync()) {
-        toggleFlashlight(true);
+      if (profile.enable_flashlight && Platform.OS !== 'web') {
+        try {
+          const { status } = await Camera.requestCameraPermissionsAsync();
+          if (status === 'granted') {
+            toggleFlashlight(true);
+          }
+        } catch (error) {
+          console.error('Camera permission error:', error);
+        }
       }
     } else {
       stopAllAlerts();
@@ -49,30 +55,17 @@ export function useEmergencyAlerts() {
     if (Platform.OS === 'web') return;
     try {
       if (on) {
-        // Create a strobe effect
+        // Create a strobe effect (simulated)
         if (flashIntervalRef.current) {
           clearInterval(flashIntervalRef.current);
         }
-        flashIntervalRef.current = setInterval(async () => {
-          setIsFlashlightOn((prev) => {
-            const newState = !prev;
-            try {
-              if (Platform.OS !== 'web') {
-                Camera.Camera.setTorchModeAsync(!newState);
-              }
-            } catch (e) {
-              console.error('Failed to toggle flashlight:', e);
-            }
-            return newState;
-          });
+        flashIntervalRef.current = setInterval(() => {
+          setIsFlashlightOn(prev => !prev);
         }, 500);
       } else {
         if (flashIntervalRef.current) {
           clearInterval(flashIntervalRef.current);
           flashIntervalRef.current = null;
-        }
-        if (Platform.OS !== 'web') {
-          await Camera.Camera.setTorchModeAsync(false);
         }
         setIsFlashlightOn(false);
       }
@@ -84,15 +77,10 @@ export function useEmergencyAlerts() {
     setIsAlertActive(false);
     // Stop vibration
     Vibration.cancel();
-    // Stop flashlight
+    // Stop flashlight effect
     if (flashIntervalRef.current) {
       clearInterval(flashIntervalRef.current);
       flashIntervalRef.current = null;
-    }
-    if (Platform.OS !== 'web') {
-      Torch.setTorchModeAsync(false).catch((e) => {
-        console.error('Failed to turn off flashlight:', e);
-      });
     }
     setIsFlashlightOn(false);
     // Stop sound if any
