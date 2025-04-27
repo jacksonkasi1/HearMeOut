@@ -124,4 +124,4 @@ This project is licensed under the MIT License.
 
 ---
 
-> Developed with ❤️ by [Jackson Kasi](https://github.com/jacksonkasi1) and the HearMeOut team.
+> Developed with ❤️ by [Jackson Kasi](https://github.com/jacksonkasi1)
