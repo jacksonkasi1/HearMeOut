@@ -20,12 +20,19 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
   transcription,
   onClose
 }) => {
-  const { isFlashlightOn, isVibrating } = useEmergencyAlerts();
+  const { isFlashlightOn, isVibrating, triggerEmergencyAlerts } = useEmergencyAlerts();
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const vibrateAnim = useRef(new Animated.Value(0)).current;
+  
+  // Restart emergency alerts when visible changes to true
+  useEffect(() => {
+    if (visible) {
+      triggerEmergencyAlerts(true);
+    }
+  }, [visible]);
   
   // Check camera permission on mount and when alert becomes visible
   useEffect(() => {
@@ -76,7 +83,7 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
       fadeAnim.setValue(0);
     }
   }, [visible]);
-  
+
   const slideIn = () => {
     Animated.timing(slideAnim, {
       toValue: 0,
@@ -117,20 +124,20 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
     Animated.loop(
       Animated.sequence([
         Animated.timing(vibrateAnim, {
-          toValue: 2,
-          duration: 50,
+          toValue: 3,
+          duration: 40,
           useNativeDriver: true,
           easing: Easing.linear
         }),
         Animated.timing(vibrateAnim, {
-          toValue: -2,
-          duration: 50,
+          toValue: -3,
+          duration: 40,
           useNativeDriver: true,
           easing: Easing.linear
         }),
         Animated.timing(vibrateAnim, {
           toValue: 0,
-          duration: 50,
+          duration: 40,
           useNativeDriver: true,
           easing: Easing.linear
         })
@@ -195,6 +202,24 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
             </View>
             
             <View style={styles.alertStatusContainer}>
+              {/* Vibration status */}
+              <View style={styles.statusItem}>
+                <View style={styles.statusIndicator}>
+                  <Animated.View
+                    style={{
+                      transform: [{ translateX: vibrateAnim }]
+                    }}
+                  >
+                    <Feather name="activity" size={20} color={colors.textDark} />
+                  </Animated.View>
+                  <View style={[styles.vibrateIndicator, isVibrating && styles.vibrateActive]} />
+                  <Text style={styles.statusText}>
+                    <Text style={styles.statusLabelText}>Vibrating</Text>
+                    {isVibrating ? ' Active' : ' Ready'}
+                  </Text>
+                </View>
+              </View>
+              
               {/* Flashlight status */}
               <View style={styles.statusItem}>
                 {hasCameraPermission === false && (
@@ -212,24 +237,14 @@ export const EmergencyAlert: React.FC<EmergencyAlertProps> = ({
                 
                 {hasCameraPermission === true && (
                   <View style={styles.statusIndicator}>
-                    <Feather name="zap" size={16} color={colors.textDark} />
+                    <Feather name="zap" size={20} color={colors.textDark} />
                     <View style={[styles.flashlightIndicator, isFlashlightOn && styles.flashlightActive]} />
                     <Text style={styles.statusText}>
-                      {isFlashlightOn ? 'Flashing' : 'Ready'}
+                      <Text style={styles.statusLabelText}>Flashing</Text>
+                      {isFlashlightOn ? ' Active' : ' Ready'}
                     </Text>
                   </View>
                 )}
-              </View>
-              
-              {/* Vibration status */}
-              <View style={styles.statusItem}>
-                <View style={styles.statusIndicator}>
-                  <Feather name="activity" size={16} color={colors.textDark} />
-                  <View style={[styles.vibrateIndicator, isVibrating && styles.vibrateActive]} />
-                  <Text style={styles.statusText}>
-                    {isVibrating ? 'Vibrating' : 'Ready'}
-                  </Text>
-                </View>
               </View>
             </View>
             
@@ -322,6 +337,7 @@ const styles = StyleSheet.create({
   statusItem: {
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   statusIndicator: {
     flexDirection: 'row',
@@ -360,6 +376,9 @@ const styles = StyleSheet.create({
     fontSize: fonts.sizes.sm,
     color: colors.textDark,
     fontWeight: fonts.weights.medium,
+  },
+  statusLabelText: {
+    opacity: 0.8,
   },
   flashlightStatusText: {
     fontSize: fonts.sizes.sm,

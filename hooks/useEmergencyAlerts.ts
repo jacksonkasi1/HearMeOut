@@ -23,12 +23,13 @@ export function useEmergencyAlerts() {
   
   // Toggle alerts based on profile settings and emergency state
   const triggerEmergencyAlerts = async (isEmergency: boolean) => {
-    if (isEmergency && profile) {
+    if (isEmergency) {
       setIsAlertActive(true);
-      if (profile.enable_vibration) {
-        triggerVibration(true);
-      }
-      if (profile.enable_flashlight && Platform.OS !== 'web') {
+      
+      // Always enable vibration in emergency mode
+      triggerVibration(true);
+      
+      if (profile?.enable_flashlight && Platform.OS !== 'web') {
         try {
           const { status } = await Camera.requestCameraPermissionsAsync();
           if (status === 'granted') {
@@ -54,37 +55,43 @@ export function useEmergencyAlerts() {
       setIsVibrating(false);
       return;
     }
-    
+
     setIsVibrating(true);
     
     // For iOS, use Haptics for better feedback
     if (Platform.OS === 'ios') {
       // SOS pattern using Haptics (3 short, 3 long, 3 short)
       const iosVibrationPattern = async () => {
-        // Short pulses (3 times)
-        for (let i = 0; i < 3; i++) {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-        
-        // Slight pause
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Long pulses (3 times)
-        for (let i = 0; i < 3; i++) {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          await new Promise(resolve => setTimeout(resolve, 200));
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        try {
+          // Short pulses (3 times)
+          for (let i = 0; i < 3; i++) {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+          
+          // Slight pause
           await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        // Slight pause
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Short pulses (3 times)
-        for (let i = 0; i < 3; i++) {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          // Long pulses (3 times)
+          for (let i = 0; i < 3; i++) {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          
+          // Slight pause
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Short pulses (3 times)
+          for (let i = 0; i < 3; i++) {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        } catch (error) {
+          console.error('Haptics error:', error);
+          // Fallback to basic vibration if haptics fail
+          Vibration.vibrate([500, 500, 500, 500], true);
         }
       };
       
@@ -95,8 +102,6 @@ export function useEmergencyAlerts() {
       vibrationIntervalRef.current = setInterval(() => {
         iosVibrationPattern();
       }, 5000);
-      
-      return;
     } else {
       // For Android, use pattern vibration
       // SOS pattern: ... --- ...
