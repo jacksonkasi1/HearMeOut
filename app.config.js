@@ -52,7 +52,10 @@ module.exports = {
     typedRoutes: true
   },
   extra: {
-    fonts: ["./assets/fonts/SpaceMono-Regular.ttf"]
+    fonts: ["./assets/fonts/SpaceMono-Regular.ttf"],
+    eas: {
+      projectId: "08f04172-fa4a-4ff5-82ef-02b81eed02f2"
+    }
   },
   // Enable React Native's New Architecture
   newArchEnabled: true
